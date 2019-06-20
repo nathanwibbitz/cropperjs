@@ -74,7 +74,19 @@ class Cropper {
 
     element[NAMESPACE] = this;
 
-    if (tagName === 'img') {
+    if (tagName === 'video') {
+      this.isVideo = true;
+
+      url = element.getAttribute('src') || '';
+      this.originalUrl = url;
+
+      // Stop when it's a blank image
+      if (!url) {
+        return;
+      }
+
+      url = element.src;      
+    } else if (tagName === 'img') {
       this.isImg = true;
 
       // e.g.: "img/picture.jpg"
@@ -102,6 +114,7 @@ class Cropper {
 
     this.url = url;
     this.imageData = {};
+    this.videoData = {};
 
     const { element, options } = this;
 
@@ -135,12 +148,6 @@ class Cropper {
     xhr.onerror = clone;
     xhr.ontimeout = clone;
 
-    xhr.onprogress = () => {
-      if (xhr.getResponseHeader('content-type') !== MIME_TYPE_JPEG) {
-        xhr.abort();
-      }
-    };
-
     xhr.onload = () => {
       this.read(xhr.response);
     };
@@ -162,7 +169,7 @@ class Cropper {
   }
 
   read(arrayBuffer) {
-    const { options, imageData } = this;
+    const { options, imageData, videoData } = this;
 
     // Reset the orientation value to its default value 1
     // as some iOS browsers will render image with its orientation
@@ -178,15 +185,54 @@ class Cropper {
     }
 
     if (options.rotatable) {
-      imageData.rotate = rotate;
+      imageData.rotate = videoData.rotate = rotate;
     }
 
     if (options.scalable) {
-      imageData.scaleX = scaleX;
-      imageData.scaleY = scaleY;
+      imageData.scaleX = videoData.scaleX = scaleX;
+      imageData.scaleY = videoData.scaleY = scaleY;
     }
 
-    this.clone();
+    if (this.isVideo) this.cloneVideo();
+    else this.clone();
+  }
+
+  cloneVideo() {
+    const { element, url } = this;
+    let crossOrigin;
+    let crossOriginUrl;
+
+    if (this.options.checkCrossOrigin && isCrossOriginURL(url)) {
+      ({ crossOrigin } = element);
+
+      if (!crossOrigin) {
+        crossOrigin = 'anonymous';
+      }
+
+      // Bust cache when there is not a "crossOrigin" property (#519)
+      crossOriginUrl = addTimestamp(url);
+    }
+
+    this.crossOrigin = crossOrigin;
+    this.crossOriginUrl = crossOriginUrl;
+
+    const video = document.createElement('video');
+
+    if (crossOrigin) {
+      video.crossOrigin = crossOrigin;
+    }
+
+    video.src = crossOriginUrl || url;
+    this.video = video;
+    video.oncanplay = this.startVideo.bind(this);
+
+    video.onloadedmetadata = () => {
+      console.log('loaded');
+    };
+
+    video.onerror = this.stop.bind(this);
+    addClass(video, CLASS_HIDE);
+    element.parentNode.insertBefore(video, element.nextSibling);
   }
 
   clone() {
@@ -220,6 +266,64 @@ class Cropper {
     image.onerror = this.stop.bind(this);
     addClass(image, CLASS_HIDE);
     element.parentNode.insertBefore(image, element.nextSibling);
+  }
+
+  startVideo() {
+    const video = this.video;
+
+    video.oncanplay = null;
+    video.onerror = null;
+    this.sizing = true;
+
+    const IS_SAFARI = WINDOW.navigator && /^(?:.(?!chrome|android))*safari/i.test(WINDOW.navigator.userAgent);
+    const done = (videoWidth, videoHeight) => {
+      assign(this.videoData, {
+        videoWidth,
+        videoHeight,
+        aspectRatio: videoWidth / videoHeight,
+      });
+      this.sizing = false;
+      this.sized = true;
+      this.buildVideo();
+    };
+
+    // Modern browsers (except Safari)
+    if (image.videoWidth && !IS_SAFARI) {
+      done(image.videoWidth, image.videoHeight);
+      return;
+    }
+
+    const sizingVideo = document.createElement('video');
+    const body = document.body || document.documentElement;
+
+    this.sizingVideo = sizingVideo;
+
+    sizingVideo.oncanplay = () => {
+      done(sizingVideo.videoWidth, sizingVideo.videoHeight);
+
+      if (!IS_SAFARI) {
+        body.removeChild(sizingVideo);
+      }
+    };
+
+    sizingVideo.src = video.src;
+
+    // iOS Safari will convert the image automatically
+    // with its orientation once append it into DOM (#279)
+    if (!IS_SAFARI) {
+      sizingVideo.style.cssText = (
+        'left:0;'
+        + 'max-height:none!important;'
+        + 'max-width:none!important;'
+        + 'min-height:0!important;'
+        + 'min-width:0!important;'
+        + 'opacity:0;'
+        + 'position:absolute;'
+        + 'top:0;'
+        + 'z-index:-1;'
+      );
+      body.appendChild(sizingVideo);
+    }
   }
 
   start() {
@@ -287,6 +391,95 @@ class Cropper {
     image.onerror = null;
     image.parentNode.removeChild(image);
     this.image = null;
+  }
+
+  buildVideo() {
+    if (!this.sized || this.ready) {
+      return;
+    }
+
+    const { element, options, image, video } = this;
+
+    // Create cropper elements
+    const container = element.parentNode;
+    const template = document.createElement('div');
+
+    template.innerHTML = TEMPLATE;
+
+    const cropper = template.querySelector(`.${NAMESPACE}-container`);
+    const canvas = cropper.querySelector(`.${NAMESPACE}-canvas`);
+    const dragBox = cropper.querySelector(`.${NAMESPACE}-drag-box`);
+    const cropBox = cropper.querySelector(`.${NAMESPACE}-crop-box`);
+    const face = cropBox.querySelector(`.${NAMESPACE}-face`);
+
+    this.container = container;
+    this.cropper = cropper;
+    this.canvas = canvas;
+    this.dragBox = dragBox;
+    this.cropBox = cropBox;
+    this.viewBox = cropper.querySelector(`.${NAMESPACE}-view-box`);
+    this.face = face;
+
+    canvas.appendChild(video);
+
+    // Hide the original image
+    addClass(element, CLASS_HIDDEN);
+
+    // Inserts the cropper after to the current image
+    container.insertBefore(cropper, element.nextSibling);
+
+    this.initPreview();
+    this.bind();
+
+    options.initialAspectRatio = Math.max(0, options.initialAspectRatio) || NaN;
+    options.aspectRatio = Math.max(0, options.aspectRatio) || NaN;
+    options.viewMode = Math.max(0, Math.min(3, Math.round(options.viewMode))) || 0;
+
+    addClass(cropBox, CLASS_HIDDEN);
+
+    if (!options.guides) {
+      addClass(cropBox.getElementsByClassName(`${NAMESPACE}-dashed`), CLASS_HIDDEN);
+    }
+
+    if (!options.center) {
+      addClass(cropBox.getElementsByClassName(`${NAMESPACE}-center`), CLASS_HIDDEN);
+    }
+
+    if (options.background) {
+      addClass(cropper, `${NAMESPACE}-bg`);
+    }
+
+    if (!options.highlight) {
+      addClass(face, CLASS_INVISIBLE);
+    }
+
+    if (options.cropBoxMovable) {
+      addClass(face, CLASS_MOVE);
+      setData(face, DATA_ACTION, ACTION_ALL);
+    }
+
+    if (!options.cropBoxResizable) {
+      addClass(cropBox.getElementsByClassName(`${NAMESPACE}-line`), CLASS_HIDDEN);
+      addClass(cropBox.getElementsByClassName(`${NAMESPACE}-point`), CLASS_HIDDEN);
+    }
+
+    this.render();
+    this.ready = true;
+    this.setDragMode(options.dragMode);
+
+    if (options.autoCrop) {
+      this.crop();
+    }
+
+    this.setData(options.data);
+
+    if (isFunction(options.ready)) {
+      addListener(element, EVENT_READY, options.ready, {
+        once: true,
+      });
+    }
+
+    dispatchEvent(element, EVENT_READY);
   }
 
   build() {

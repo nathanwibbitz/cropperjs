@@ -64,11 +64,11 @@ export default {
 
   // Canvas (image wrapper)
   initCanvas() {
-    const { containerData, imageData } = this;
+    const { containerData, imageData, videoData } = this;
     const { viewMode } = this.options;
     const rotated = Math.abs(imageData.rotate) % 180 === 90;
-    const naturalWidth = rotated ? imageData.naturalHeight : imageData.naturalWidth;
-    const naturalHeight = rotated ? imageData.naturalWidth : imageData.naturalHeight;
+    const naturalWidth = this.isVideo ? (rotated ? videoData.videoHeight : videoData.videoWidth) : (rotated ? imageData.naturalHeight : imageData.naturalWidth);
+    const naturalHeight = this.isVideo ? (rotated ? videoData.videoWidth : videoData.videoHeight) : (rotated ? imageData.naturalWidth : imageData.naturalHeight);
     const aspectRatio = naturalWidth / naturalHeight;
     let canvasWidth = containerData.width;
     let canvasHeight = containerData.height;
@@ -210,13 +210,13 @@ export default {
   },
 
   renderCanvas(changed, transformed) {
-    const { canvasData, imageData } = this;
+    const { canvasData, imageData, videoData } = this;
 
     if (transformed) {
       const { width: naturalWidth, height: naturalHeight } = getRotatedSizes({
-        width: imageData.naturalWidth * Math.abs(imageData.scaleX || 1),
-        height: imageData.naturalHeight * Math.abs(imageData.scaleY || 1),
-        degree: imageData.rotate || 0,
+        width: (this.isVideo ? videoData.videoWidth : imageData.naturalWidth) * Math.abs(this.isVideo ? videoData.scaleX : imageData.scaleX || 1),
+        height: (this.isVideo ? videoData.videoHeight : imageData.naturalWidth) * Math.abs(this.isVideo ? videoData.scaleY : imageData.scaleY || 1),
+        degree: this.isVideo ? videoData.rotate : imageData.rotate || 0,
       });
       const width = canvasData.width * (naturalWidth / canvasData.naturalWidth);
       const height = canvasData.height * (naturalHeight / canvasData.naturalHeight);
@@ -271,7 +271,8 @@ export default {
       translateY: canvasData.top,
     })));
 
-    this.renderImage(changed);
+    if (this.isVideo) this.renderVideo(changed);
+    else this.renderImage(changed);
 
     if (this.cropped && this.limited) {
       this.limitCropBox(true, true);
@@ -296,6 +297,31 @@ export default {
       translateX: imageData.left,
       translateY: imageData.top,
     }, imageData))));
+
+    if (changed) {
+      this.output();
+    }
+  },
+
+  renderVideo(changed) {
+    const { canvasData, videoData } = this;
+
+    const width = videoData.videoWidth * (canvasData.width / videoData.videoWidth);
+    const height = videoData.videoHeight * (canvasData.height / videoData.videoHeight);
+
+    assign(videoData, {
+      width,
+      height,
+      left: (canvasData.width - width) / 2,
+      top: (canvasData.height - height) / 2,
+    });
+    setStyle(this.video, assign({
+      width: videoData.width,
+      height: videoData.height,
+    }, getTransforms(assign({
+      translateX: videoData.left,
+      translateY: videoData.top,
+    }, videoData))));
 
     if (changed) {
       this.output();

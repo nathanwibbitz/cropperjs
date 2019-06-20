@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<script type="text/javascript" src="cropper.js"></script>
+	<link rel="stylesheet" type="text/css" href="cropper.css">
+</head>
+<body>
+	<video src="https://wbtz-media-ingest-stag.s3.amazonaws.com/media/cbcbb209abb4480c9cb3810d386e01c4.mp4"></video>
+	<img src="https://wbtz-media-ingest-stag.s3.amazonaws.com/media/b11cf1eaa5eb41cea0b78f1a667648f2.jpg"/>
+
+	<script>
+		const image = document.querySelector('img');
+		const video = document.querySelector('video');
+
+		// const imageCropper = new Cropper(image, {
+		// 	aspectRatio: 16/9,
+		// 	viewMode: 0,
+		// 	dragMode: 'move',
+		// 	cropBoxMovable: false,
+		// 	cropBoxResizable: false,
+		// 	toggleDragModeOnDblclick: false,
+		// 	background: false,
+		// 	modal: false,
+		// 	zoomOnWheel: false,
+		// 	autoCropArea: 0.8
+		// });
+
+		const videoCropper = new Cropper(video, {
+			aspectRatio: 16/9,
+			viewMode: 0,
+			dragMode: 'move',
+			cropBoxMovable: false,
+			cropBoxResizable: false,
+			toggleDragModeOnDblclick: false,
+			background: false,
+			modal: false,
+			zoomOnWheel: false,
+			autoCropArea: 0.8,
+			checkCrossOrigin: false
+		});
+	</script>
+</body>
+</html>

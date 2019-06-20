@@ -59,7 +59,7 @@ export const MIME_TYPE_JPEG = 'image/jpeg';
 // RegExps
 export const REGEXP_ACTIONS = /^e|w|s|n|se|sw|ne|nw|all|crop|move|zoom$/;
 export const REGEXP_DATA_URL_JPEG = /^data:image\/jpeg;base64,/;
-export const REGEXP_TAG_NAME = /^img|canvas$/i;
+export const REGEXP_TAG_NAME = /^img|video|canvas$/i;
 
 // Misc
 // Inspired by the default width and height of a canvas element.

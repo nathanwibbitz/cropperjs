@@ -5,7 +5,7 @@
  * Copyright 2015-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2019-03-10T09:55:53.729Z
+ * Date: 2019-06-20T13:53:53.455Z
  */
 
 (function (global, factory) {
@@ -124,7 +124,7 @@
 
   var REGEXP_ACTIONS = /^e|w|s|n|se|sw|ne|nw|all|crop|move|zoom$/;
   var REGEXP_DATA_URL_JPEG = /^data:image\/jpeg;base64,/;
-  var REGEXP_TAG_NAME = /^img|canvas$/i; // Misc
+  var REGEXP_TAG_NAME = /^img|video|canvas$/i; // Misc
   // Inspired by the default width and height of a canvas element.
 
   var MIN_CONTAINER_WIDTH = 200;
@@ -1180,11 +1180,12 @@
     // Canvas (image wrapper)
     initCanvas: function initCanvas() {
       var containerData = this.containerData,
-          imageData = this.imageData;
+          imageData = this.imageData,
+          videoData = this.videoData;
       var viewMode = this.options.viewMode;
       var rotated = Math.abs(imageData.rotate) % 180 === 90;
-      var naturalWidth = rotated ? imageData.naturalHeight : imageData.naturalWidth;
-      var naturalHeight = rotated ? imageData.naturalWidth : imageData.naturalHeight;
+      var naturalWidth = this.isVideo ? rotated ? videoData.videoHeight : videoData.videoWidth : rotated ? imageData.naturalHeight : imageData.naturalWidth;
+      var naturalHeight = this.isVideo ? rotated ? videoData.videoWidth : videoData.videoHeight : rotated ? imageData.naturalWidth : imageData.naturalHeight;
       var aspectRatio = naturalWidth / naturalHeight;
       var canvasWidth = containerData.width;
       var canvasHeight = containerData.height;
@@ -1310,13 +1311,14 @@
     },
     renderCanvas: function renderCanvas(changed, transformed) {
       var canvasData = this.canvasData,
-          imageData = this.imageData;
+          imageData = this.imageData,
+          videoData = this.videoData;
 
       if (transformed) {
         var _getRotatedSizes = getRotatedSizes({
-          width: imageData.naturalWidth * Math.abs(imageData.scaleX || 1),
-          height: imageData.naturalHeight * Math.abs(imageData.scaleY || 1),
-          degree: imageData.rotate || 0
+          width: (this.isVideo ? videoData.videoWidth : imageData.naturalWidth) * Math.abs(this.isVideo ? videoData.scaleX : imageData.scaleX || 1),
+          height: (this.isVideo ? videoData.videoHeight : imageData.naturalWidth) * Math.abs(this.isVideo ? videoData.scaleY : imageData.scaleY || 1),
+          degree: this.isVideo ? videoData.rotate : imageData.rotate || 0
         }),
             naturalWidth = _getRotatedSizes.width,
             naturalHeight = _getRotatedSizes.height;
@@ -1355,7 +1357,7 @@
         translateX: canvasData.left,
         translateY: canvasData.top
       })));
-      this.renderImage(changed);
+      if (this.isVideo) this.renderVideo(changed);else this.renderImage(changed);
 
       if (this.cropped && this.limited) {
         this.limitCropBox(true, true);
@@ -1379,6 +1381,29 @@
         translateX: imageData.left,
         translateY: imageData.top
       }, imageData))));
+
+      if (changed) {
+        this.output();
+      }
+    },
+    renderVideo: function renderVideo(changed) {
+      var canvasData = this.canvasData,
+          videoData = this.videoData;
+      var width = videoData.videoWidth * (canvasData.width / videoData.videoWidth);
+      var height = videoData.videoHeight * (canvasData.height / videoData.videoHeight);
+      assign(videoData, {
+        width: width,
+        height: height,
+        left: (canvasData.width - width) / 2,
+        top: (canvasData.height - height) / 2
+      });
+      setStyle(this.video, assign({
+        width: videoData.width,
+        height: videoData.height
+      }, getTransforms(assign({
+        translateX: videoData.left,
+        translateY: videoData.top
+      }, videoData))));
 
       if (changed) {
         this.output();
@@ -3187,7 +3212,17 @@
 
         element[NAMESPACE] = this;
 
-        if (tagName === 'img') {
+        if (tagName === 'video') {
+          this.isVideo = true;
+          url = element.getAttribute('src') || '';
+          this.originalUrl = url; // Stop when it's a blank image
+
+          if (!url) {
+            return;
+          }
+
+          url = element.src;
+        } else if (tagName === 'img') {
           this.isImg = true; // e.g.: "img/picture.jpg"
 
           url = element.getAttribute('src') || '';
@@ -3216,6 +3251,7 @@
 
         this.url = url;
         this.imageData = {};
+        this.videoData = {};
         var element = this.element,
             options = this.options;
 
@@ -3247,12 +3283,6 @@
         xhr.onerror = clone;
         xhr.ontimeout = clone;
 
-        xhr.onprogress = function () {
-          if (xhr.getResponseHeader('content-type') !== MIME_TYPE_JPEG) {
-            xhr.abort();
-          }
-        };
-
         xhr.onload = function () {
           _this.read(xhr.response);
         };
@@ -3276,7 +3306,8 @@
       key: "read",
       value: function read(arrayBuffer) {
         var options = this.options,
-            imageData = this.imageData; // Reset the orientation value to its default value 1
+            imageData = this.imageData,
+            videoData = this.videoData; // Reset the orientation value to its default value 1
         // as some iOS browsers will render image with its orientation
 
         var orientation = resetAndGetOrientation(arrayBuffer);
@@ -3296,15 +3327,54 @@
         }
 
         if (options.rotatable) {
-          imageData.rotate = rotate;
+          imageData.rotate = videoData.rotate = rotate;
         }
 
         if (options.scalable) {
-          imageData.scaleX = scaleX;
-          imageData.scaleY = scaleY;
+          imageData.scaleX = videoData.scaleX = scaleX;
+          imageData.scaleY = videoData.scaleY = scaleY;
         }
 
-        this.clone();
+        if (this.isVideo) this.cloneVideo();else this.clone();
+      }
+    }, {
+      key: "cloneVideo",
+      value: function cloneVideo() {
+        var element = this.element,
+            url = this.url;
+        var crossOrigin;
+        var crossOriginUrl;
+
+        if (this.options.checkCrossOrigin && isCrossOriginURL(url)) {
+          crossOrigin = element.crossOrigin;
+
+          if (!crossOrigin) {
+            crossOrigin = 'anonymous';
+          } // Bust cache when there is not a "crossOrigin" property (#519)
+
+
+          crossOriginUrl = addTimestamp(url);
+        }
+
+        this.crossOrigin = crossOrigin;
+        this.crossOriginUrl = crossOriginUrl;
+        var video = document.createElement('video');
+
+        if (crossOrigin) {
+          video.crossOrigin = crossOrigin;
+        }
+
+        video.src = crossOriginUrl || url;
+        this.video = video;
+        video.oncanplay = this.startVideo.bind(this);
+
+        video.onloadedmetadata = function () {
+          console.log('loaded');
+        };
+
+        video.onerror = this.stop.bind(this);
+        addClass(video, CLASS_HIDE);
+        element.parentNode.insertBefore(video, element.nextSibling);
       }
     }, {
       key: "clone",
@@ -3317,13 +3387,12 @@
         if (this.options.checkCrossOrigin && isCrossOriginURL(url)) {
           crossOrigin = element.crossOrigin;
 
-          if (crossOrigin) {
-            crossOriginUrl = url;
-          } else {
-            crossOrigin = 'anonymous'; // Bust cache when there is not a "crossOrigin" property
+          if (!crossOrigin) {
+            crossOrigin = 'anonymous';
+          } // Bust cache when there is not a "crossOrigin" property (#519)
 
-            crossOriginUrl = addTimestamp(url);
-          }
+
+          crossOriginUrl = addTimestamp(url);
         }
 
         this.crossOrigin = crossOrigin;
@@ -3342,9 +3411,58 @@
         element.parentNode.insertBefore(image, element.nextSibling);
       }
     }, {
+      key: "startVideo",
+      value: function startVideo() {
+        var _this2 = this;
+
+        var video = this.video;
+        video.oncanplay = null;
+        video.onerror = null;
+        this.sizing = true;
+        var IS_SAFARI = WINDOW.navigator && /^(?:.(?!chrome|android))*safari/i.test(WINDOW.navigator.userAgent);
+
+        var done = function done(videoWidth, videoHeight) {
+          assign(_this2.videoData, {
+            videoWidth: videoWidth,
+            videoHeight: videoHeight,
+            aspectRatio: videoWidth / videoHeight
+          });
+          _this2.sizing = false;
+          _this2.sized = true;
+
+          _this2.buildVideo();
+        }; // Modern browsers (except Safari)
+
+
+        if (image.videoWidth && !IS_SAFARI) {
+          done(image.videoWidth, image.videoHeight);
+          return;
+        }
+
+        var sizingVideo = document.createElement('video');
+        var body = document.body || document.documentElement;
+        this.sizingVideo = sizingVideo;
+
+        sizingVideo.oncanplay = function () {
+          done(sizingVideo.videoWidth, sizingVideo.videoHeight);
+
+          if (!IS_SAFARI) {
+            body.removeChild(sizingVideo);
+          }
+        };
+
+        sizingVideo.src = video.src; // iOS Safari will convert the image automatically
+        // with its orientation once append it into DOM (#279)
+
+        if (!IS_SAFARI) {
+          sizingVideo.style.cssText = 'left:0;' + 'max-height:none!important;' + 'max-width:none!important;' + 'min-height:0!important;' + 'min-width:0!important;' + 'opacity:0;' + 'position:absolute;' + 'top:0;' + 'z-index:-1;';
+          body.appendChild(sizingVideo);
+        }
+      }
+    }, {
       key: "start",
       value: function start() {
-        var _this2 = this;
+        var _this3 = this;
 
         var image = this.isImg ? this.element : this.image;
         image.onload = null;
@@ -3353,15 +3471,15 @@
         var IS_SAFARI = WINDOW.navigator && /^(?:.(?!chrome|android))*safari/i.test(WINDOW.navigator.userAgent);
 
         var done = function done(naturalWidth, naturalHeight) {
-          assign(_this2.imageData, {
+          assign(_this3.imageData, {
             naturalWidth: naturalWidth,
             naturalHeight: naturalHeight,
             aspectRatio: naturalWidth / naturalHeight
           });
-          _this2.sizing = false;
-          _this2.sized = true;
+          _this3.sizing = false;
+          _this3.sized = true;
 
-          _this2.build();
+          _this3.build();
         }; // Modern browsers (except Safari)
 
 
@@ -3398,6 +3516,89 @@
         image.onerror = null;
         image.parentNode.removeChild(image);
         this.image = null;
+      }
+    }, {
+      key: "buildVideo",
+      value: function buildVideo() {
+        if (!this.sized || this.ready) {
+          return;
+        }
+
+        var element = this.element,
+            options = this.options,
+            image = this.image,
+            video = this.video; // Create cropper elements
+
+        var container = element.parentNode;
+        var template = document.createElement('div');
+        template.innerHTML = TEMPLATE;
+        var cropper = template.querySelector(".".concat(NAMESPACE, "-container"));
+        var canvas = cropper.querySelector(".".concat(NAMESPACE, "-canvas"));
+        var dragBox = cropper.querySelector(".".concat(NAMESPACE, "-drag-box"));
+        var cropBox = cropper.querySelector(".".concat(NAMESPACE, "-crop-box"));
+        var face = cropBox.querySelector(".".concat(NAMESPACE, "-face"));
+        this.container = container;
+        this.cropper = cropper;
+        this.canvas = canvas;
+        this.dragBox = dragBox;
+        this.cropBox = cropBox;
+        this.viewBox = cropper.querySelector(".".concat(NAMESPACE, "-view-box"));
+        this.face = face;
+        canvas.appendChild(video); // Hide the original image
+
+        addClass(element, CLASS_HIDDEN); // Inserts the cropper after to the current image
+
+        container.insertBefore(cropper, element.nextSibling);
+        this.initPreview();
+        this.bind();
+        options.initialAspectRatio = Math.max(0, options.initialAspectRatio) || NaN;
+        options.aspectRatio = Math.max(0, options.aspectRatio) || NaN;
+        options.viewMode = Math.max(0, Math.min(3, Math.round(options.viewMode))) || 0;
+        addClass(cropBox, CLASS_HIDDEN);
+
+        if (!options.guides) {
+          addClass(cropBox.getElementsByClassName("".concat(NAMESPACE, "-dashed")), CLASS_HIDDEN);
+        }
+
+        if (!options.center) {
+          addClass(cropBox.getElementsByClassName("".concat(NAMESPACE, "-center")), CLASS_HIDDEN);
+        }
+
+        if (options.background) {
+          addClass(cropper, "".concat(NAMESPACE, "-bg"));
+        }
+
+        if (!options.highlight) {
+          addClass(face, CLASS_INVISIBLE);
+        }
+
+        if (options.cropBoxMovable) {
+          addClass(face, CLASS_MOVE);
+          setData(face, DATA_ACTION, ACTION_ALL);
+        }
+
+        if (!options.cropBoxResizable) {
+          addClass(cropBox.getElementsByClassName("".concat(NAMESPACE, "-line")), CLASS_HIDDEN);
+          addClass(cropBox.getElementsByClassName("".concat(NAMESPACE, "-point")), CLASS_HIDDEN);
+        }
+
+        this.render();
+        this.ready = true;
+        this.setDragMode(options.dragMode);
+
+        if (options.autoCrop) {
+          this.crop();
+        }
+
+        this.setData(options.data);
+
+        if (isFunction(options.ready)) {
+          addListener(element, EVENT_READY, options.ready, {
+            once: true
+          });
+        }
+
+        dispatchEvent(element, EVENT_READY);
       }
     }, {
       key: "build",
@@ -3548,3 +3749,4 @@
   return Cropper;
 
 }));
+//# sourceMappingURL=cropper.js.map
