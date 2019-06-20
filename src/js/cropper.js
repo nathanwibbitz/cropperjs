@@ -85,7 +85,7 @@ class Cropper {
         return;
       }
 
-      url = element.src;      
+      url = element.src;
     } else if (tagName === 'img') {
       this.isImg = true;
 
@@ -269,7 +269,7 @@ class Cropper {
   }
 
   startVideo() {
-    const video = this.video;
+    const { video } = this;
 
     video.oncanplay = null;
     video.onerror = null;
@@ -398,7 +398,9 @@ class Cropper {
       return;
     }
 
-    const { element, options, image, video } = this;
+    const {
+      element, options, image, video,
+    } = this;
 
     // Create cropper elements
     const container = element.parentNode;
