@@ -226,10 +226,6 @@ class Cropper {
     this.video = video;
     video.oncanplay = this.startVideo.bind(this);
 
-    video.onloadedmetadata = () => {
-      console.log('loaded');
-    };
-
     video.onerror = this.stop.bind(this);
     addClass(video, CLASS_HIDE);
     element.parentNode.insertBefore(video, element.nextSibling);
