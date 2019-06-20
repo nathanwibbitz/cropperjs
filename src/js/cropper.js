@@ -288,8 +288,8 @@ class Cropper {
     };
 
     // Modern browsers (except Safari)
-    if (image.videoWidth && !IS_SAFARI) {
-      done(image.videoWidth, image.videoHeight);
+    if (video.videoWidth && !IS_SAFARI) {
+      done(video.videoWidth, video.videoHeight);
       return;
     }
 
