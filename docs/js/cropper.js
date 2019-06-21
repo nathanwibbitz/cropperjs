@@ -2794,8 +2794,10 @@
       var rounded = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
       var options = this.options,
           imageData = this.imageData,
+          videoData = this.videoData,
           canvasData = this.canvasData,
-          cropBoxData = this.cropBoxData;
+          cropBoxData = this.cropBoxData,
+          isVideo = this.isVideo;
       var data;
 
       if (this.ready && this.cropped) {
@@ -2805,7 +2807,7 @@
           width: cropBoxData.width,
           height: cropBoxData.height
         };
-        var ratio = imageData.width / imageData.naturalWidth;
+        var ratio = this.isVideo ? videoData.width / videoData.videoWidth : imageData.width / imageData.naturalWidth;
         forEach(data, function (n, i) {
           data[i] = n / ratio;
         });
