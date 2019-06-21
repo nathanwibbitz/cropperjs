@@ -10,6 +10,69 @@ import {
 } from './utilities';
 
 export default {
+  initVideoPreview() {
+    const { crossOrigin } = this;
+    const { preview } = this.options;
+    const url = crossOrigin ? this.crossOriginUrl : this.url;
+    const image = document.createElement('img');
+
+    if (crossOrigin) {
+      image.crossOrigin = crossOrigin;
+    }
+
+    this.viewBox.appendChild(image);
+    this.viewBoxImage = image;
+
+    if (!preview) {
+      return;
+    }
+
+    let previews = preview;
+
+    if (typeof preview === 'string') {
+      previews = this.element.ownerDocument.querySelectorAll(preview);
+    } else if (preview.querySelector) {
+      previews = [preview];
+    }
+
+    this.previews = previews;
+
+    forEach(previews, (el) => {
+      const img = document.createElement('img');
+
+      // Save the original size for recover
+      setData(el, DATA_PREVIEW, {
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+        html: el.innerHTML,
+      });
+
+      if (crossOrigin) {
+        img.crossOrigin = crossOrigin;
+      }
+
+      /**
+       * Override img element styles
+       * Add `display:block` to avoid margin top issue
+       * Add `height:auto` to override `height` attribute on IE8
+       * (Occur only when margin-top <= -height)
+       */
+      img.style.cssText = (
+        'display:block;'
+        + 'width:100%;'
+        + 'height:auto;'
+        + 'min-width:0!important;'
+        + 'min-height:0!important;'
+        + 'max-width:none!important;'
+        + 'max-height:none!important;'
+        + 'image-orientation:0deg!important;"'
+      );
+
+      el.innerHTML = '';
+      el.appendChild(img);
+    });
+  },
+
   initPreview() {
     const { crossOrigin } = this;
     const { preview } = this.options;

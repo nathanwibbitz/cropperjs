@@ -426,7 +426,7 @@ class Cropper {
     // Inserts the cropper after to the current image
     container.insertBefore(cropper, element.nextSibling);
 
-    this.initPreview();
+    this.initVideoPreview();
     this.bind();
 
     options.initialAspectRatio = Math.max(0, options.initialAspectRatio) || NaN;
