@@ -224,7 +224,7 @@ class Cropper {
 
     video.src = crossOriginUrl || url;
     this.video = video;
-    video.oncanplay = this.startVideo.bind(this);
+    video.onloadeddata = this.startVideo.bind(this);
 
     video.onerror = this.stop.bind(this);
     addClass(video, CLASS_HIDE);
@@ -267,7 +267,7 @@ class Cropper {
   startVideo() {
     const { video } = this;
 
-    video.oncanplay = null;
+    video.onloadeddata = null;
     video.onerror = null;
     this.sizing = true;
 
@@ -294,7 +294,7 @@ class Cropper {
 
     this.sizingVideo = sizingVideo;
 
-    sizingVideo.oncanplay = () => {
+    sizingVideo.onloadeddata = () => {
       done(sizingVideo.videoWidth, sizingVideo.videoHeight);
 
       if (!IS_SAFARI) {

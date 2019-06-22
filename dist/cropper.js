@@ -3419,7 +3419,7 @@
 
         video.src = crossOriginUrl || url;
         this.video = video;
-        video.oncanplay = this.startVideo.bind(this);
+        video.onloadeddata = this.startVideo.bind(this);
         video.onerror = this.stop.bind(this);
         addClass(video, CLASS_HIDE);
         element.parentNode.insertBefore(video, element.nextSibling);
@@ -3464,7 +3464,7 @@
         var _this2 = this;
 
         var video = this.video;
-        video.oncanplay = null;
+        video.onloadeddata = null;
         video.onerror = null;
         this.sizing = true;
         var IS_SAFARI = WINDOW.navigator && /^(?:.(?!chrome|android))*safari/i.test(WINDOW.navigator.userAgent);
@@ -3491,7 +3491,7 @@
         var body = document.body || document.documentElement;
         this.sizingVideo = sizingVideo;
 
-        sizingVideo.oncanplay = function () {
+        sizingVideo.onloadeddata = function () {
           done(sizingVideo.videoWidth, sizingVideo.videoHeight);
 
           if (!IS_SAFARI) {
