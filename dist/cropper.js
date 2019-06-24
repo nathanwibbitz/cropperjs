@@ -5,7 +5,7 @@
  * Copyright 2015-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2019-06-20T15:11:12.649Z
+ * Date: 2019-06-24T12:02:39.715Z
  */
 
 (function (global, factory) {
@@ -3314,7 +3314,7 @@
 
 
         if (!options.checkOrientation || !window.ArrayBuffer) {
-          this.clone();
+          if (this.isVideo) this.cloneVideo();else this.clone();
           return;
         } // Read ArrayBuffer from Data URL of JPEG images directly for better performance.
 

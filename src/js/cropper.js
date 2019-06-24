@@ -124,7 +124,8 @@ class Cropper {
 
     // Only IE10+ supports Typed Arrays
     if (!options.checkOrientation || !window.ArrayBuffer) {
-      if (this.isVideo) ? this.cloneVideo() : this.clone();
+      if (this.isVideo) this.cloneVideo();
+      else this.clone();
       return;
     }
 
