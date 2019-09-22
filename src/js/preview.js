@@ -14,14 +14,16 @@ export default {
     const { crossOrigin } = this;
     const { preview } = this.options;
     const url = crossOrigin ? this.crossOriginUrl : this.url;
-    const image = document.createElement('img');
+    const video = document.createElement('video');
 
     if (crossOrigin) {
-      image.crossOrigin = crossOrigin;
+      video.crossOrigin = crossOrigin;
     }
 
-    this.viewBox.appendChild(image);
-    this.viewBoxImage = image;
+    video.src = url;
+    this.viewBox.appendChild(video);
+    this.viewBoxImage = video;
+    this.videoPreviewElement = video;
 
     if (!preview) {
       return;
@@ -38,7 +40,7 @@ export default {
     this.previews = previews;
 
     forEach(previews, (el) => {
-      const img = document.createElement('img');
+      const video = document.createElement('video');
 
       // Save the original size for recover
       setData(el, DATA_PREVIEW, {
@@ -48,8 +50,10 @@ export default {
       });
 
       if (crossOrigin) {
-        img.crossOrigin = crossOrigin;
+        video.crossOrigin = crossOrigin;
       }
+
+      video.src = url;
 
       /**
        * Override img element styles
@@ -57,7 +61,7 @@ export default {
        * Add `height:auto` to override `height` attribute on IE8
        * (Occur only when margin-top <= -height)
        */
-      img.style.cssText = (
+      video.style.cssText = (
         'display:block;'
         + 'width:100%;'
         + 'height:auto;'
@@ -69,7 +73,7 @@ export default {
       );
 
       el.innerHTML = '';
-      el.appendChild(img);
+      el.appendChild(video);
     });
   },
 
@@ -205,4 +209,24 @@ export default {
       }, imageData))));
     });
   },
+
+  videoPreview() {
+    const { imageData, videoData, canvasData, cropBoxData } = this;
+    const { width: cropBoxWidth, height: cropBoxHeight } = cropBoxData;
+    const { width, height } = videoData;
+    const left = cropBoxData.left - canvasData.left - videoData.left;
+    const top = cropBoxData.top - canvasData.top - videoData.top;
+
+    if (!this.cropped || this.disabled) {
+      return;
+    }
+
+    setStyle(this.viewBoxImage, assign({
+      width,
+      height,
+    }, getTransforms(assign({
+      translateX: -left,
+      translateY: -top,
+    }, videoData))));
+  }
 };

@@ -5,7 +5,7 @@
  * Copyright 2015-present Chen Fengyuan
  * Released under the MIT license
  *
- * Date: 2019-06-24T12:02:39.715Z
+ * Date: 2019-09-22T08:36:49.082Z
  */
 
 function _typeof(obj) {
@@ -1536,7 +1536,7 @@ var render = {
     }
   },
   output: function output() {
-    this.preview();
+    this.isVideo ? this.videoPreview() : this.preview();
     dispatchEvent(this.element, EVENT_CROP, this.getData());
   }
 };
@@ -1546,14 +1546,16 @@ var preview = {
     var crossOrigin = this.crossOrigin;
     var preview = this.options.preview;
     var url = crossOrigin ? this.crossOriginUrl : this.url;
-    var image = document.createElement('img');
+    var video = document.createElement('video');
 
     if (crossOrigin) {
-      image.crossOrigin = crossOrigin;
+      video.crossOrigin = crossOrigin;
     }
 
-    this.viewBox.appendChild(image);
-    this.viewBoxImage = image;
+    video.src = url;
+    this.viewBox.appendChild(video);
+    this.viewBoxImage = video;
+    this.videoPreviewElement = video;
 
     if (!preview) {
       return;
@@ -1569,7 +1571,7 @@ var preview = {
 
     this.previews = previews;
     forEach(previews, function (el) {
-      var img = document.createElement('img'); // Save the original size for recover
+      var video = document.createElement('video'); // Save the original size for recover
 
       setData(el, DATA_PREVIEW, {
         width: el.offsetWidth,
@@ -1578,8 +1580,10 @@ var preview = {
       });
 
       if (crossOrigin) {
-        img.crossOrigin = crossOrigin;
+        video.crossOrigin = crossOrigin;
       }
+
+      video.src = url;
       /**
        * Override img element styles
        * Add `display:block` to avoid margin top issue
@@ -1587,10 +1591,9 @@ var preview = {
        * (Occur only when margin-top <= -height)
        */
 
-
-      img.style.cssText = 'display:block;' + 'width:100%;' + 'height:auto;' + 'min-width:0!important;' + 'min-height:0!important;' + 'max-width:none!important;' + 'max-height:none!important;' + 'image-orientation:0deg!important;"';
+      video.style.cssText = 'display:block;' + 'width:100%;' + 'height:auto;' + 'min-width:0!important;' + 'min-height:0!important;' + 'max-width:none!important;' + 'max-height:none!important;' + 'image-orientation:0deg!important;"';
       el.innerHTML = '';
-      el.appendChild(img);
+      el.appendChild(video);
     });
   },
   initPreview: function initPreview() {
@@ -1710,6 +1713,30 @@ var preview = {
         translateY: -top * ratio
       }, imageData))));
     });
+  },
+  videoPreview: function videoPreview() {
+    var imageData = this.imageData,
+        videoData = this.videoData,
+        canvasData = this.canvasData,
+        cropBoxData = this.cropBoxData;
+    var cropBoxWidth = cropBoxData.width,
+        cropBoxHeight = cropBoxData.height;
+    var width = videoData.width,
+        height = videoData.height;
+    var left = cropBoxData.left - canvasData.left - videoData.left;
+    var top = cropBoxData.top - canvasData.top - videoData.top;
+
+    if (!this.cropped || this.disabled) {
+      return;
+    }
+
+    setStyle(this.viewBoxImage, assign({
+      width: width,
+      height: height
+    }, getTransforms(assign({
+      translateX: -left,
+      translateY: -top
+    }, videoData))));
   }
 };
 

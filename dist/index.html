@@ -13,20 +13,7 @@
 		const image = document.querySelector('img');
 		const video = document.querySelector('video');
 
-		// const imageCropper = new Cropper(image, {
-		// 	aspectRatio: 16/9,
-		// 	viewMode: 0,
-		// 	dragMode: 'move',
-		// 	cropBoxMovable: false,
-		// 	cropBoxResizable: false,
-		// 	toggleDragModeOnDblclick: false,
-		// 	background: false,
-		// 	modal: false,
-		// 	zoomOnWheel: false,
-		// 	autoCropArea: 0.8
-		// });
-
-		const videoCropper = new Cropper(video, {
+		const imageCropper = new Cropper(image, {
 			aspectRatio: 16/9,
 			viewMode: 0,
 			dragMode: 'move',
@@ -34,7 +21,21 @@
 			cropBoxResizable: false,
 			toggleDragModeOnDblclick: false,
 			background: false,
-			modal: false,
+			modal: true,
+			zoomOnWheel: false,
+			autoCropArea: 0.8,
+			checkCrossOrigin: false
+		});
+
+		window.videoCropper = new Cropper(video, {
+			aspectRatio: 16/9,
+			viewMode: 0,
+			dragMode: 'move',
+			cropBoxMovable: false,
+			cropBoxResizable: false,
+			toggleDragModeOnDblclick: false,
+			background: false,
+			modal: true,
 			zoomOnWheel: false,
 			autoCropArea: 0.8,
 			checkCrossOrigin: false

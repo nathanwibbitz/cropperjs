@@ -516,7 +516,7 @@ export default {
   },
 
   output() {
-    this.preview();
+    this.isVideo ? this.videoPreview() : this.preview();
     dispatchEvent(this.element, EVENT_CROP, this.getData());
   },
 };
